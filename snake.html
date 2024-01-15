@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #333; /* Dark mode background color */
+            color: #fff; /* Dark mode text color */
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(20, 20px);
+            grid-template-rows: repeat(20, 20px);
+            border: 2px solid #fff; /* Add border to the game board */
+        }
+
+        .snake, .food {
+            width: 20px;
+            height: 20px;
+        }
+
+        .snake {
+            background-color: #2ecc71;
+        }
+
+        .food {
+            background-color: #e74c3c;
+        }
+
+        #score-container {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 18px;
+        }
+
+        #current-score {
+            margin-bottom: 10px;
+        }
+
+        #high-score {
+            color: #e74c3c; /* Highlight high score in red */
+        }
+
+        #play-button {
+            margin-top: 20px;
+            cursor: pointer;
+        }
+    </style>
+    <title>Snake Game</title>
+</head>
+<body>
+    <div class="game-board" id="game-board"></div>
+    <div id="score-container">
+        <div id="current-score">Score: 0</div>
+        <div id="high-score">High Score: 0</div>
+    </div>
+    <button id="play-button">Play Background Music</button>
+    <audio id="backgroundSound" src="snakemusic.mp3" loop></audio>
+    <audio id="eatSound" src="snakeeat.mp3"></audio>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const board = document.getElementById('game-board');
+            const currentScoreElement = document.getElementById('current-score');
+            const highScoreElement = document.getElementById('high-score');
+            const eatSound = document.getElementById('eatSound');
+            const backgroundSound = document.getElementById('backgroundSound');
+            const gridSize = 20;
+            const initialSnakeSize = 3;
+            let snake = [{ x: 10, y: 10 }];
+            let direction = 'right';
+            let food = generateFood();
+            let score = 0;
+            let highScore = localStorage.getItem('highScore') || 0;
+
+            function generateFood() {
+                const food = {
+                    x: Math.floor(Math.random() * gridSize),
+                    y: Math.floor(Math.random() * gridSize)
+                };
+
+                // Make sure the food doesn't overlap with the snake
+                while (snake.some(segment => segment.x === food.x && segment.y === food.y)) {
+                    food.x = Math.floor(Math.random() * gridSize);
+                    food.y = Math.floor(Math.random() * gridSize);
+                }
+
+                return food;
+            }
+
+            function draw() {
+                // Clear the board
+                board.innerHTML = '';
+
+                // Draw the snake
+                snake.forEach(segment => {
+                    const snakeSegment = document.createElement('div');
+                    snakeSegment.className = 'snake';
+                    snakeSegment.style.gridRowStart = segment.y + 1;
+                    snakeSegment.style.gridColumnStart = segment.x + 1;
+                    board.appendChild(snakeSegment);
+                });
+
+                // Draw the food
+                const foodElement = document.createElement('div');
+                foodElement.className = 'food';
+                foodElement.style.gridRowStart = food.y + 1;
+                foodElement.style.gridColumnStart = food.x + 1;
+                board.appendChild(foodElement);
+
+                // Update the score
+                currentScoreElement.textContent = 'Score: ' + score;
+                highScoreElement.textContent = 'High Score: ' + highScore;
+            }
+
+            function playEatSound() {
+                eatSound.currentTime = 0;
+                eatSound.play();
+            }
+
+            function update() {
+                // Update the snake's position
+                const head = Object.assign({}, snake[0]); // create a new object to avoid reference issues
+
+                switch (direction) {
+                    case 'up':
+                        head.y = (head.y - 1 + gridSize) % gridSize;
+                        break;
+                    case 'down':
+                        head.y = (head.y + 1) % gridSize;
+                        break;
+                    case 'left':
+                        head.x = (head.x - 1 + gridSize) % gridSize;
+                        break;
+                    case 'right':
+                        head.x = (head.x + 1) % gridSize;
+                        break;
+                }
+
+                // Check for collisions with itself
+                if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                    handleGameOver();
+                    return;
+                }
+
+                // Check for collisions with food
+                if (head.x === food.x && head.y === food.y) {
+                    snake.unshift(food);
+                    food = generateFood();
+                    score += 10;
+
+                    // Update high score if needed
+                    if (score > highScore) {
+                        highScore = score;
+                        localStorage.setItem('highScore', highScore);
+                    }
+
+                    playEatSound(); // Play the eating sound
+                } else {
+                    // Move the snake
+                    snake.pop(); // remove the last segment
+                    snake.unshift(head); // add the new head
+                }
+
+                // Draw the updated board
+                draw();
+            }
+
+            function handleGameOver() {
+                alert('Game Over! Your score: ' + score);
+                resetGame();
+            }
+
+            function resetGame() {
+                snake = [{ x: 10, y: 10 }];
+                direction = 'right';
+                food = generateFood();
+                score = 0;
+                draw();
+            }
+
+            function handleKeyPress(event) {
+                switch (event.key) {
+                    case 'ArrowUp':
+                        if (direction !== 'down') {
+                            direction = 'up';
+                        }
+                        break;
+                    case 'ArrowDown':
+                        if (direction !== 'up') {
+                            direction = 'down';
+                        }
+                        break;
+                    case 'ArrowLeft':
+                        if (direction !== 'right') {
+                            direction = 'left';
+                        }
+                        break;
+                    case 'ArrowRight':
+                        if (direction !== 'left') {
+                            direction = 'right';
+                        }
+                        break;
+                }
+            }
+
+            function startBackgroundMusic() {
+                backgroundSound.volume = 0.5; // Set volume to 50%
+                backgroundSound.play();
+                document.getElementById('play-button').style.display = 'none';
+            }
+
+            // Set up event listeners
+            document.addEventListener('keydown', handleKeyPress);
+            document.getElementById('play-button').addEventListener('click', startBackgroundMusic);
+
+            // Initialize the game
+            resetGame();
+
+            // Game loop
+            setInterval(update, 150); // Adjust the interval for snake speed
+        });
+    </script>
+</body>
+</html>
